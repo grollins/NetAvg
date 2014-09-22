@@ -8,6 +8,10 @@ import os
 import shutil
 import subprocess
 import numpy
+from os.path import join
+
+
+GMX_PATH = '/usr/local/gromacs/bin/'
 
 
 mdp_string = '''
@@ -67,12 +71,14 @@ def load_pdb(in_file):
 
 def create_no_h_file():
     # make the index file
-    cmd = 'make_ndx -f min_round_2.gro -o no_h.ndx'
+    cmd = join(GMX_PATH, 'make_ndx')
+    cmd += ' -f min_round_2.gro -o no_h.ndx'
     p1 = subprocess.Popen(cmd, shell=True, stdin=subprocess.PIPE)
     p1.communicate('q\n')
 
     # run editconf
-    edit_cmd = 'editconf -f min_round_2.gro -o no_h.gro -n no_h.ndx'
+    edit_cmd = join(GMX_PATH, 'editconf')
+    edit_cmd += ' -f min_round_2.gro -o no_h.gro -n no_h.ndx'
     p2 = subprocess.Popen(edit_cmd, shell=True, stdin=subprocess.PIPE)
     p2.communicate('2\n')
 
@@ -93,36 +99,44 @@ def re_order():
             print >>out, val
 
     # resort
-    edit_cmd = 'editconf -f no_h.gro -o min.pdb -n resort.ndx'
+    edit_cmd = join(GMX_PATH, 'editconf')
+    edit_cmd += ' -f no_h.gro -o min.pdb -n resort.ndx'
     subprocess.check_call(edit_cmd, shell=True)
 
 
 def run_minimization(average, start, posres_force_const):
     # create temp dir
-    os.mkdir('Temp')
+    if os.path.isdir('Temp'):
+        pass
+    else:
+        os.mkdir('Temp')
     os.chdir('Temp')
 
     # write the average file
     prody.writePDB('average.pdb', average)
-    pdb_cmd = 'pdb2gmx -f average.pdb -ff amber99sb-ildn -water none -n index.ndx -posrefc {} -o ref.gro -his'.format(
+    pdb_cmd = join(GMX_PATH, 'pdb2gmx')
+    pdb_cmd += ' -f average.pdb -ff amber99sb-ildn -water none -n index.ndx -posrefc {} -o ref.gro -his'.format(
         posres_force_const)
     p = subprocess.Popen(pdb_cmd, shell=True, stdin=subprocess.PIPE)
     p.communicate('0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n')
     # put it in a bigger box
-    box_cmd = 'editconf -f ref.gro -o ref_box.gro -c -box 999 999 999'
+    box_cmd = join(GMX_PATH, 'editconf')
+    box_cmd += ' -f ref.gro -o ref_box.gro -c -box 999 999 999'
     subprocess.check_call(box_cmd, shell=True)
 
     # write pdb file
     prody.writePDB('start.pdb', start)
 
     # pdb2gmx
-    pdb_cmd = 'pdb2gmx -f start.pdb -ff amber99sb-ildn -water none -n index.ndx -posrefc {} -his'.format(
+    pdb_cmd = join(GMX_PATH, 'pdb2gmx')
+    pdb_cmd += ' -f start.pdb -ff amber99sb-ildn -water none -n index.ndx -posrefc {} -his'.format(
         posres_force_const)
     p = subprocess.Popen(pdb_cmd, shell=True, stdin=subprocess.PIPE)
     p.communicate('0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n0\n')
 
     # put it in a bigger box
-    box_cmd = 'editconf -f conf.gro -o box.gro -c -box 999 999 999'
+    box_cmd = join(GMX_PATH, 'editconf')
+    box_cmd += ' -f conf.gro -o box.gro -c -box 999 999 999'
     subprocess.check_call(box_cmd, shell=True)
 
     #
@@ -134,11 +148,13 @@ def run_minimization(average, start, posres_force_const):
         min_file.write( mdp_string.format(integrator='steep') )
 
     # run grompp
-    grompp_cmd = 'grompp -f min_round_1.mdp -c box.gro -p topol.top -o min_round_1 -r ref_box.gro'
+    grompp_cmd = join(GMX_PATH, 'grompp')
+    grompp_cmd += ' -f min_round_1.mdp -c box.gro -p topol.top -o min_round_1 -r ref_box.gro'
     subprocess.check_call(grompp_cmd, shell=True)
 
     # run mdrun
-    md_cmd = 'mdrun -deffnm min_round_1 -v -nt 1'
+    md_cmd = join(GMX_PATH, 'mdrun')
+    md_cmd += ' -deffnm min_round_1 -v -nt 1'
     subprocess.check_call(md_cmd, shell=True)
 
     #
@@ -150,11 +166,13 @@ def run_minimization(average, start, posres_force_const):
         min_file.write( mdp_string.format(integrator='l-bfgs') )
 
     # run grompp
-    grompp_cmd = 'grompp -f min_round_2.mdp -c min_round_1.gro -p topol.top -o min_round_2 -maxwarn 1 -r ref_box.gro'
+    grompp_cmd = join(GMX_PATH, 'grompp')
+    grompp_cmd += ' -f min_round_2.mdp -c min_round_1.gro -p topol.top -o min_round_2 -maxwarn 1 -r ref_box.gro'
     subprocess.check_call(grompp_cmd, shell=True)
 
     # run mdrun
-    md_cmd = 'mdrun -deffnm min_round_2 -v -nt 1'
+    md_cmd = join(GMX_PATH, 'mdrun')
+    md_cmd = ' -deffnm min_round_2 -v -nt 1'
     subprocess.check_call(md_cmd, shell=True)
 
     #
