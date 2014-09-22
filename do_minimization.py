@@ -172,7 +172,7 @@ def run_minimization(average, start, posres_force_const):
 
     # run mdrun
     md_cmd = join(GMX_PATH, 'mdrun')
-    md_cmd = ' -deffnm min_round_2 -v -nt 1'
+    md_cmd += ' -deffnm min_round_2 -v -nt 1'
     subprocess.check_call(md_cmd, shell=True)
 
     #
